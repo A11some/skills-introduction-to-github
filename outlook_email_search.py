@@ -21,35 +21,38 @@ def get_start_of_month():
     today = date.today()
     return date(today.year, today.month, 1)
 
-def connect_to_outlook(email, password, server=None):
+def connect_to_outlook():
     """
-    Connect to Outlook account.
-    
-    Args:
-        email (str): Email address
-        password (str): Password
-        server (str, optional): Exchange server URL
+    Connect to Outlook account using default credentials.
     
     Returns:
         Account: Connected account object
     """
     try:
-        credentials = Credentials(email, password)
-        
-        if server:
-            config = Configuration(server=server, credentials=credentials)
-            account = Account(primary_smtp_address=email, config=config, 
-                           autodiscover=False, access_type=DELEGATE)
-        else:
-            account = Account(primary_smtp_address=email, credentials=credentials, 
-                           autodiscover=True, access_type=DELEGATE)
-        
-        print(f"Successfully connected to {email}")
+        # Use default credentials (Windows authentication or cached credentials)
+        account = Account(autodiscover=True, access_type=DELEGATE)
+        print(f"Successfully connected to {account.primary_smtp_address}")
         return account
     
     except Exception as e:
         print(f"Error connecting to Outlook: {e}")
-        return None
+        print("Trying alternative connection method...")
+        
+        try:
+            # Alternative: Try with explicit credentials if needed
+            email = input("Enter your email address: ").strip()
+            password = input("Enter your password: ").strip()
+            
+            credentials = Credentials(email, password)
+            account = Account(primary_smtp_address=email, credentials=credentials, 
+                           autodiscover=True, access_type=DELEGATE)
+            
+            print(f"Successfully connected to {email}")
+            return account
+            
+        except Exception as e2:
+            print(f"Error with alternative connection: {e2}")
+            return None
 
 def search_emails(account, start_date, end_date, search_term="beat"):
     """
@@ -65,23 +68,27 @@ def search_emails(account, start_date, end_date, search_term="beat"):
         list: List of matching emails
     """
     try:
-        # Search in inbox
+        # Get inbox and search for emails
         inbox = account.inbox
+        print(f"Searching inbox: {inbox.name}")
         
-        # Filter emails by date range and search term
+        # Get all emails in date range
         emails = inbox.filter(
             received__gte=start_date,
             received__lte=end_date
         )
         
+        print(f"Found {len(emails)} emails in date range, checking for '{search_term}'...")
+        
+        # Filter emails containing search term
         matching_emails = []
+        search_term_lower = search_term.lower()
         
         for email in emails:
-            # Check if search term is in subject or body
             subject = email.subject.lower() if email.subject else ""
             body = email.body.lower() if email.body else ""
             
-            if search_term.lower() in subject or search_term.lower() in body:
+            if search_term_lower in subject or search_term_lower in body:
                 matching_emails.append(email)
         
         print(f"Found {len(matching_emails)} emails containing '{search_term}'")
@@ -274,19 +281,11 @@ def main():
     print("Outlook Email Search Tool")
     print("=" * 40)
     
-    # Get user credentials
-    email = input("Enter your email address: ").strip()
-    password = input("Enter your password: ").strip()
-    
-    # Optional: Exchange server URL (leave empty for autodiscover)
-    server = input("Enter Exchange server URL (or press Enter for autodiscover): ").strip()
-    if not server:
-        server = None
-    
-    # Connect to Outlook
-    account = connect_to_outlook(email, password, server)
+    # Connect to Outlook using default credentials
+    print("Connecting to Outlook...")
+    account = connect_to_outlook()
     if not account:
-        print("Failed to connect to Outlook. Please check your credentials.")
+        print("Failed to connect to Outlook.")
         return
     
     # Set search parameters
